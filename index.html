@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Sayı Trenleri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lexend:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --u: 44px;                 /* bir birim bloğun boyu (JS günceller) */
+    --bg1:#FFF7E8;
+    --bg2:#FDEBD0;
+    --ink:#4a3b2a;
+    --card:#FFFDF7;
+    --line: rgba(0,0,0,.10);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:'Nunito',system-ui,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 18% 12%, #FFFFFF55 0 22px, transparent 23px) 0 0/64px 64px,
+      radial-gradient(circle at 70% 60%, #FFFFFF40 0 18px, transparent 19px) 0 0/64px 64px,
+      linear-gradient(160deg, var(--bg1), var(--bg2));
+    min-height:100%;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:18px 14px 40px;
+  }
+  .wrap{ width:100%; max-width:680px; }
+
+  /* ---- başlık ---- */
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand h1{
+    font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(22px,6vw,30px);
+    margin:0; letter-spacing:.3px; color:#5b4636;
+  }
+  .brand .loco{ font-size:clamp(26px,7vw,34px); transform:translateY(1px); }
+  .stars{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:18px;
+    background:#fff; border:3px solid #ffe2a6; border-radius:999px;
+    padding:6px 14px; color:#b4791d; display:flex; align-items:center; gap:6px;
+    box-shadow:0 4px 0 #f3d690;
+  }
+
+  /* ---- oyun kartı ---- */
+  .card{
+    background:var(--card);
+    border:4px solid #fff;
+    border-radius:28px;
+    box-shadow:0 18px 40px -18px rgba(120,80,30,.45), inset 0 2px 0 #fff;
+    padding:20px 18px 22px;
+  }
+  .instr{ text-align:center; font-weight:700; color:#8a6f53; font-size:clamp(14px,3.6vw,16px); margin:0 0 16px; }
+
+  .board{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+
+  /* etiketli satır */
+  .row{ display:flex; align-items:flex-end; gap:6px; }
+  .rowtag{ flex:none; display:flex; align-items:flex-end; }
+  .rowtag svg{ height: calc(var(--u) * 1.18); width:auto; display:block; }
+  .bar{ display:flex; align-items:center; height:var(--u); }
+
+  /* çubuk (rod) görünümü */
+  .rod{
+    height:var(--u); position:relative; user-select:none;
+  }
+  /* vagon ayraçları (sayının arkasına denk gelmez) */
+  .rod::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--u) - 2px), rgba(0,0,0,.14) calc(var(--u) - 2px), rgba(0,0,0,.14) var(--u));
+  }
+  .r-left  { border-radius:14px 6px 6px 14px; }
+  .r-right { border-radius:6px 14px 14px 6px; }
+  .r-both  { border-radius:14px; }
+
+  /* sayı: barın ortasında, çizginin ÜSTÜNDE; çizgi yalnızca sayının altında gizlenir */
+  .num{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2; pointer-events:none;
+    color:#fff; font-family:'Lexend','Nunito',sans-serif; font-weight:700;
+    font-size: calc(var(--u) * .56); line-height:1; letter-spacing:.5px;
+  }
+
+  /* doldurulacak boşluk */
+  .gap{
+    height:var(--u); position:relative;
+    border:3px dashed #d8c19a; border-radius:6px 14px 14px 6px;
+    background:
+      repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--u) - 2px), #e7d4ad calc(var(--u) - 2px), #e7d4ad var(--u)),
+      #fff8ea;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .gap .num{ color:#c9ab78; }
+  .gap.hot{ border-color:#7bbf6b; box-shadow:0 0 0 4px #b6e3a8; transform:translateY(-1px); }
+  .gap.shake{ animation:shake .4s; }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+
+  /* geri besleme / denklem */
+  .feedback{ min-height:54px; margin-top:16px; display:flex; align-items:center; justify-content:center; }
+  .hint{ font-family:'Fredoka',sans-serif; font-weight:600; color:#a98a64; font-size:clamp(15px,4vw,18px); }
+  .eq{ display:flex; align-items:center; gap:10px; font-family:'Fredoka',sans-serif; font-weight:700; }
+  .eq .op{ font-size:clamp(22px,6vw,30px); color:#8a6f53; }
+  .chip{
+    width:clamp(40px,11vw,52px); height:clamp(40px,11vw,52px); border-radius:14px;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    font-family:'Lexend','Nunito',sans-serif; font-weight:700;
+    font-size:clamp(20px,6vw,26px);
+    animation:pop .35s backwards;
+  }
+  .chip:nth-child(3){ animation-delay:.08s; }
+  .chip:nth-child(5){ animation-delay:.16s; }
+  @keyframes pop{ from{ transform:scale(.2) rotate(-12deg); opacity:0 } to{ transform:none; opacity:1 } }
+  .yay{ font-size:clamp(18px,5vw,22px); color:#3f9e57; margin-left:6px; }
+
+  /* tepsi */
+  .card + .card{ margin-top:16px; }
+  .tray-title{ text-align:center; font-family:'Fredoka',sans-serif; color:#9a8060; font-weight:600; font-size:15px; margin:2px 0 14px; }
+  .tray{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .pair{ display:flex; align-items:center; gap:16px; }
+  .pair .rod{ cursor:grab; touch-action:none; transition:transform .12s ease; }
+  .pair .rod:active{ cursor:grabbing; }
+  .pair .rod:hover{ filter:brightness(1.05); }
+  .pair .rod.selected{
+    transform:translateY(-4px) scale(1.04); z-index:2;
+    box-shadow: 0 0 0 4px #ffd76b;
+  }
+
+  .ghost{ position:fixed; z-index:50; pointer-events:none; opacity:.96; transform:translate(-50%,-50%) scale(1.05); }
+
+  /* ayarlar butonu */
+  .iconbtn{
+    background:#fff; border:3px solid #ffe2a6; color:#b4791d; border-radius:14px;
+    font-size:18px; padding:7px 11px; cursor:pointer; line-height:1;
+    box-shadow:0 4px 0 #f3d690;
+  }
+  .iconbtn:active{ transform:translateY(2px); box-shadow:0 2px 0 #f3d690; }
+
+  /* modal */
+  .modal{
+    position:fixed; inset:0; z-index:100; display:none;
+    align-items:center; justify-content:center; padding:20px;
+    background:rgba(60,40,20,.45);
+  }
+  .modal.open{ display:flex; }
+  .modal-card{
+    background:#fffdf7; border:4px solid #fff; border-radius:24px;
+    box-shadow:0 24px 50px -16px rgba(120,80,30,.5);
+    width:100%; max-width:420px; padding:20px 20px 24px; font-family:'Nunito',sans-serif;
+  }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .modal-head h2{ font-family:'Fredoka',sans-serif; margin:0; font-size:24px; color:#5b4636; }
+  .modal-close{
+    background:#f3ece0; border:none; border-radius:12px; width:36px; height:36px;
+    font-size:16px; cursor:pointer; color:#8a6f53;
+  }
+  .setrow{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; border-top:2px solid #f1e7d6; margin-top:8px; }
+  .setblock{ padding:14px 0 2px; border-top:2px solid #f1e7d6; margin-top:6px; }
+  .settitle{ font-weight:800; color:#5b4636; font-size:16px; }
+  .setdesc{ color:#9a8060; font-size:13px; margin-top:2px; }
+
+  .switch{
+    flex:none; width:56px; height:32px; border-radius:999px; border:none; cursor:pointer;
+    background:#d8cdb8; position:relative; transition:background .15s ease; padding:0;
+  }
+  .switch[aria-checked="true"]{ background:#46B45A; }
+  .switch span{
+    position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%;
+    background:#fff; transition:left .15s ease; box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+  .switch[aria-checked="true"] span{ left:27px; }
+
+  .segmented{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+  .segmented button{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:15px; cursor:pointer;
+    padding:11px 8px; border-radius:14px; border:2px solid #e7dcc7; background:#fff; color:#8a6f53;
+    transition:background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .segmented button.seg-on{ background:#4F8DF7; border-color:#4F8DF7; color:#fff; }
+
+  .confetti{ position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden; }
+  .confetti span{ position:absolute; font-size:26px; will-change:transform; }
+  @keyframes fall{ to{ transform:translateY(110vh) rotate(540deg); opacity:0 } }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; }
+  }
+  @media (max-width:520px){
+    .rowtag{ width:64px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <span class="loco">🚂</span>
+        <h1>Sayı Trenleri</h1>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div class="stars" id="stars">⭐ <span id="starCount">0</span></div>
+        <button class="iconbtn" id="settingsBtn" aria-label="Ayarlar" title="Ayarlar">⚙️</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="board">
+        <div class="row">
+          <div class="rowtag" aria-label="Senin trenin">
+            <svg viewBox="0 0 88 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="6" y="40" width="76" height="9" rx="4.5" fill="#E2574C"/>
+              <rect x="6" y="22" width="48" height="20" rx="10" fill="#E2574C"/>
+              <path d="M50 13 h27 a5 5 0 0 1 5 5 v24 h-32 z" fill="#E2574C"/>
+              <rect x="16" y="8" width="11" height="18" rx="3" fill="#E2574C"/>
+              <rect x="13" y="5" width="17" height="7" rx="3.5" fill="#E2574C"/>
+              <rect x="34" y="13" width="9" height="11" rx="4" fill="#E2574C"/>
+              <rect x="56" y="20" width="19" height="14" rx="4" fill="#fff" opacity="0.92"/>
+              <circle cx="12" cy="51" r="6" fill="#3a3a3a"/>
+              <circle cx="27" cy="49" r="11" fill="#3a3a3a"/><circle cx="27" cy="49" r="4" fill="#dcdcdc"/>
+              <circle cx="61" cy="50" r="8.5" fill="#3a3a3a"/><circle cx="61" cy="50" r="3" fill="#dcdcdc"/>
+            </svg>
+          </div>
+          <div class="bar" id="rowA"></div>
+        </div>
+        <div class="row">
+          <div class="rowtag" aria-label="Hedef tren">
+            <svg viewBox="0 0 88 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="6" y="40" width="76" height="9" rx="4.5" fill="#46B45A"/>
+              <rect x="6" y="22" width="48" height="20" rx="10" fill="#46B45A"/>
+              <path d="M50 13 h27 a5 5 0 0 1 5 5 v24 h-32 z" fill="#46B45A"/>
+              <rect x="16" y="8" width="11" height="18" rx="3" fill="#46B45A"/>
+              <rect x="13" y="5" width="17" height="7" rx="3.5" fill="#46B45A"/>
+              <rect x="34" y="13" width="9" height="11" rx="4" fill="#46B45A"/>
+              <rect x="56" y="20" width="19" height="14" rx="4" fill="#fff" opacity="0.92"/>
+              <circle cx="12" cy="51" r="6" fill="#3a3a3a"/>
+              <circle cx="27" cy="49" r="11" fill="#3a3a3a"/><circle cx="27" cy="49" r="4" fill="#dcdcdc"/>
+              <circle cx="61" cy="50" r="8.5" fill="#3a3a3a"/><circle cx="61" cy="50" r="3" fill="#dcdcdc"/>
+            </svg>
+          </div>
+          <div class="bar" id="rowB"></div>
+        </div>
+      </div>
+
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div class="card tray-card">
+      <div class="tray" id="tray"></div>
+    </div>
+  </div>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-label="Ayarlar">
+      <div class="modal-head">
+        <h2>Ayarlar</h2>
+        <button class="modal-close" id="modalClose" aria-label="Kapat">✕</button>
+      </div>
+
+      <div class="setrow">
+        <div class="setlabel">
+          <div class="settitle">Yanlışta puanı sıfırla</div>
+          <div class="setdesc">Hatalı cevapta yıldızlar sıfırlanır.</div>
+        </div>
+        <button class="switch" id="resetSwitch" role="switch" aria-checked="false"><span></span></button>
+      </div>
+
+      <div class="setblock">
+        <div class="settitle">Şipşak modu</div>
+        <div class="setdesc">Üstte hazır verilen vagon sayısı. Örn. 1 → cevap, hedefin 1 eksiğidir.</div>
+        <div class="segmented" id="quickSeg">
+          <button data-mode="free" class="seg-on">Serbest</button>
+          <button data-mode="1">1</button>
+          <button data-mode="2">2</button>
+          <button data-mode="3">3</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // tüm çubuklar tek renk
+  const C_RED   = { bg:'#E2574C' };   // senin trenin
+  const C_GREEN = { bg:'#46B45A' };   // hedef tren
+  const C_BLUE  = { bg:'#4F8DF7' };   // vagon parçaları
+
+  const rowA = document.getElementById('rowA');
+  const rowB = document.getElementById('rowB');
+  const tray = document.getElementById('tray');
+  const feedback = document.getElementById('feedback');
+  const starCountEl = document.getElementById('starCount');
+  const confetti = document.getElementById('confetti');
+  const modal = document.getElementById('modal');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const modalClose = document.getElementById('modalClose');
+  const resetSwitch = document.getElementById('resetSwitch');
+  const quickSeg = document.getElementById('quickSeg');
+
+  const settings = { resetScore:false, quickMode:'free' };
+
+  let U = 44;
+  let state = { target:7, filled:3, gap:4, solved:false, selected:null, stars:0 };
+
+  function computeU(){
+    // 10 birim ekrana sığsın
+    const avail = Math.min(640, window.innerWidth - 56);
+    return Math.round(Math.max(24, Math.min(48, avail/10)));
+  }
+
+  function makeRod(len, round, color, label){
+    const rod = document.createElement('div');
+    rod.className = 'rod r-' + round;
+    rod.style.width = (len*U) + 'px';
+    rod.style.background = color.bg;
+
+    const num = document.createElement('div');
+    num.className = 'num';
+    num.style.textShadow = '0 0 4px '+color.bg+', 0 0 4px '+color.bg+', 0 0 3px '+color.bg+', 0 0 2px '+color.bg;
+    num.textContent = (label !== undefined ? label : len);
+
+    rod.appendChild(num);
+    return rod;
+  }
+
+  function render(){
+    U = computeU();
+    document.documentElement.style.setProperty('--u', U + 'px');
+
+    // ---- Senin trenin: dolu kısım + boşluk (kırmızı) ----
+    rowA.innerHTML = '';
+    rowA.appendChild(makeRod(state.filled, 'left', C_RED));
+
+    if(state.solved){
+      rowA.appendChild(makeRod(state.gap, 'right', C_BLUE));
+    } else {
+      const gap = document.createElement('div');
+      gap.className = 'gap';
+      gap.style.width = (state.gap*U) + 'px';
+      const qn = document.createElement('div');
+      qn.className = 'num';
+      qn.style.textShadow = '0 0 4px #fff8ea, 0 0 4px #fff8ea, 0 0 3px #fff8ea, 0 0 2px #fff8ea';
+      qn.textContent = '?';
+      gap.appendChild(qn);
+      rowA.appendChild(gap);
+    }
+
+    // ---- Hedef tren (yeşil) ----
+    rowB.innerHTML = '';
+    rowB.appendChild(makeRod(state.target, 'both', C_GREEN));
+
+    // ---- Tepsi: 10'a tamamlayan ikililer (mavi) ----
+    tray.innerHTML = '';
+    const PAIRS = [[1,9],[2,8],[3,7],[4,6],[5,5]];
+    PAIRS.forEach(function(pair){
+      const row = document.createElement('div');
+      row.className = 'pair';
+      pair.forEach(function(len){
+        const rod = makeRod(len, 'both', C_BLUE);
+        rod.dataset.len = len;
+        attachDrag(rod, len);
+        row.appendChild(rod);
+      });
+      tray.appendChild(row);
+    });
+
+    // ---- alt yazı / denklem ----
+    if(state.solved){
+      showEquation();
+    } else {
+      feedback.innerHTML = '<div class="hint">Kaç vagon gerekli?</div>';
+    }
+    starCountEl.textContent = state.stars;
+  }
+
+  // ------- sürükle & dokun -------
+  let drag = null;
+  function attachDrag(rod, len){
+    rod.addEventListener('pointerdown', function(e){
+      if(state.solved) return;
+      e.preventDefault();
+      drag = { rod, len, startX:e.clientX, startY:e.clientY, ghost:null, moved:false };
+      try{ rod.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    rod.addEventListener('pointermove', function(e){
+      if(!drag || drag.rod!==rod) return;
+      const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+      if(!drag.moved && Math.hypot(dx,dy) < 7) return;
+      drag.moved = true;
+      if(!drag.ghost){
+        const g = rod.cloneNode(true);
+        g.className += ' ghost';
+        document.body.appendChild(g);
+        drag.ghost = g;
+        clearSelection();
+      }
+      drag.ghost.style.left = e.clientX + 'px';
+      drag.ghost.style.top  = e.clientY + 'px';
+      highlightDrop(e.clientX, e.clientY);
+    });
+    rod.addEventListener('pointerup', function(e){
+      if(!drag || drag.rod!==rod) return;
+      const moved = drag.moved;
+      if(drag.ghost) drag.ghost.remove();
+      const gap = document.querySelector('.gap');
+      if(gap) gap.classList.remove('hot');
+
+      if(moved){
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const dropEl = el && el.closest('[data-drop]');
+        if(dropEl){ tryPlace(len); }
+      } else {
+        // dokunma: seç
+        toggleSelect(rod, len);
+      }
+      drag = null;
+    });
+    rod.addEventListener('pointercancel', function(){
+      if(drag && drag.ghost) drag.ghost.remove();
+      drag = null;
+    });
+  }
+
+  function highlightDrop(x,y){
+    const gap = document.querySelector('.gap');
+    if(!gap) return;
+    const el = document.elementFromPoint(x,y);
+    const over = el && el.closest('[data-drop]');
+    gap.classList.toggle('hot', !!over);
+  }
+
+  function clearSelection(){
+    state.selected = null;
+    document.querySelectorAll('.tray .rod.selected').forEach(r=>r.classList.remove('selected'));
+  }
+  function toggleSelect(rod, len){
+    if(rod.classList.contains('selected')){ clearSelection(); return; }
+    clearSelection();
+    rod.classList.add('selected');
+    state.selected = len;
+  }
+
+  // ------- yerleştirme mantığı -------
+  function tryPlace(len){
+    if(state.solved) return;
+    if(len === state.gap){
+      win();
+    } else {
+      const gapEl = rowA.querySelector('.gap');
+      if(gapEl){ gapEl.classList.remove('hot'); gapEl.classList.add('shake'); setTimeout(()=>gapEl.classList.remove('shake'),420); }
+      const msg = len < state.gap ? 'Biraz daha uzun lazım 🤏' : 'Bu çok uzun! 📏';
+      feedback.innerHTML = '<div class="hint">' + msg + ' Tekrar dene!</div>';
+      clearSelection();
+      if(settings.resetScore){        // yalnızca ayar açıksa sıfırla
+        state.stars = 0;
+        starCountEl.textContent = state.stars;
+      }
+    }
+  }
+
+  function win(){
+    state.solved = true;
+    state.stars += 1;
+    clearSelection();
+    render();
+    party();
+    setTimeout(nextRound, 2000);       // 2 sn sonra yeni soru
+  }
+
+  function showEquation(){
+    const f = state.filled, g = state.gap, t = state.target;
+    function chip(n, color){
+      return '<div class="chip" style="background:'+color+'">'+n+'</div>';
+    }
+    feedback.innerHTML =
+      '<div class="eq">' +
+        chip(f, C_RED.bg) + '<span class="op">+</span>' + chip(g, C_BLUE.bg) +
+        '<span class="op">=</span>' + chip(t, C_GREEN.bg) +
+        '<span class="yay">🎉</span>' +
+      '</div>';
+  }
+
+  function pickFilled(target){
+    let opts;
+    if(settings.quickMode === '1') opts = [1];
+    else if(settings.quickMode === '2') opts = [1,2];
+    else if(settings.quickMode === '3') opts = [1,2,3];
+    else return 1 + Math.floor(Math.random()*(target-1));   // serbest
+    opts = opts.filter(function(f){ return f <= target-1; });
+    return opts[Math.floor(Math.random()*opts.length)];
+  }
+
+  function nextRound(){
+    const t = 3 + Math.floor(Math.random()*7);    // 3..9
+    const f = pickFilled(t);                       // üstte hazır verilen vagon (şipşak moduna göre)
+    state.target = t; state.filled = f; state.gap = t - f;
+    state.solved = false; state.selected = null;
+    render();
+  }
+
+  // ------- konfeti -------
+  function party(){
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const emojis = ['⭐','🎉','✨','🟣','🟢','🟡','🔵','🚂'];
+    for(let i=0;i<18;i++){
+      const s = document.createElement('span');
+      s.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      s.style.left = Math.random()*100 + 'vw';
+      s.style.top = '-40px';
+      s.style.fontSize = (18 + Math.random()*18) + 'px';
+      s.style.animation = 'fall ' + (1.1 + Math.random()*0.9) + 's ease-in forwards';
+      s.style.animationDelay = (Math.random()*0.25) + 's';
+      confetti.appendChild(s);
+      setTimeout(()=>s.remove(), 2200);
+    }
+  }
+
+  // ------- olaylar -------
+  // tüm "Senin trenin" çubuğu (kırmızı kısım dahil) bırakma/dokunma alanı
+  rowA.dataset.drop = '1';
+  rowA.addEventListener('click', function(){
+    if(state.selected != null && !state.solved) tryPlace(state.selected);
+  });
+
+  settingsBtn.addEventListener('click', function(){ modal.classList.add('open'); });
+  modalClose.addEventListener('click', function(){ modal.classList.remove('open'); });
+  modal.addEventListener('click', function(e){ if(e.target === modal) modal.classList.remove('open'); });
+
+  resetSwitch.addEventListener('click', function(){
+    settings.resetScore = !settings.resetScore;
+    resetSwitch.setAttribute('aria-checked', settings.resetScore ? 'true' : 'false');
+  });
+
+  quickSeg.addEventListener('click', function(e){
+    const btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    settings.quickMode = btn.dataset.mode;
+    quickSeg.querySelectorAll('button').forEach(function(b){ b.classList.toggle('seg-on', b === btn); });
+    nextRound();
+  });
+
+  let rt;
+  window.addEventListener('resize', ()=>{ clearTimeout(rt); rt=setTimeout(render, 120); });
+
+  // başla
+  render();
+})();
+</script>
+</body>
+</html>
